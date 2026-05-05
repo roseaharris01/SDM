@@ -1,0 +1,9 @@
+{
+  "name": "com.konkon.download_manager",
+  "description": "Silent Download Manager Native Messaging Host",
+  "path": "__NATIVE_HOST_EXE_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__EXTENSION_ID__/"
+  ]
+}
