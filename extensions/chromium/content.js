@@ -84,19 +84,30 @@ function isVideoHost(hostname) {
 
 function isVideoPage(url) {
   const videoPagePatterns = [
+    // YouTube
     /youtube\.com\/watch/i,
-    /youtu\.be\//i,
-    /facebook\.com\/(?:watch|video|.*\/videos\/)/i,
-    /fb\.watch\//i,
+    /youtu\.be\/.+/i,
+    /youtube\.com\/shorts\//i,
+    // Facebook — any page on facebook.com with a path (videos, reels, watch, posts, stories)
+    /facebook\.com\//i,
+    /fb\.watch\/.+/i,
+    // Instagram
     /instagram\.com\/(?:p|reel|tv)\//i,
-    /twitter\.com\/.*\/status\//i,
-    /x\.com\/.*\/status\//i,
+    // Twitter / X
+    /(?:twitter|x)\.com\/.+\/status\//i,
+    // TikTok
     /tiktok\.com\/@[^/]+\/video\//i,
+    // Vimeo
     /vimeo\.com\/\d+/i,
+    // Dailymotion
     /dailymotion\.com\/video\//i,
-    /twitch\.tv\/videos\//i,
+    // Twitch
+    /twitch\.tv\/(?:videos\/\d+|[^/]+\/clip\/)/i,
+    // Reddit
     /reddit\.com\/r\/[^/]+\/comments\//i,
+    // Rumble
     /rumble\.com\/v/i,
+    // Odysee
     /odysee\.com\/@[^/]+\//i,
   ];
 

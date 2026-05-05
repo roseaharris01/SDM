@@ -167,7 +167,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 ? CreateVideoFileName(uri)
                 : CreateFileName(uri),
             TargetFolder = DownloadFolder,
-            // Tag so we can resume with the right engine
             IsYtDlp = isVideoSite
         };
 
