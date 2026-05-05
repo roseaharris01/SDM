@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Silent Download Manager",
-  "description": "Send direct file and media links from Chrome or Edge to Silent Download Manager.",
-  "version": "0.5.0",
-  "permissions": ["contextMenus", "nativeMessaging", "notifications"],
+  "description": "Send direct file and media links from Chrome or Edge to Silent Download Manager. Supports YouTube, Facebook, Instagram, and more via yt-dlp.",
+  "version": "0.6.0",
+  "permissions": [
+    "contextMenus",
+    "nativeMessaging",
+    "notifications",
+    "tabs",
+    "webRequest"
+  ],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

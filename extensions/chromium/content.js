@@ -1,67 +1,128 @@
 const KONKON_MEDIA_EXTENSIONS = [
-  ".mp4",
-  ".webm",
-  ".mkv",
-  ".mov",
-  ".avi",
-  ".mp3",
-  ".m4a",
-  ".wav",
-  ".ogg",
-  ".zip",
-  ".rar",
-  ".7z",
-  ".pdf",
-  ".exe",
-  ".msi"
+  ".mp4", ".webm", ".mkv", ".mov", ".avi",
+  ".mp3", ".m4a", ".wav", ".ogg",
+  ".zip", ".rar", ".7z",
+  ".pdf", ".exe", ".msi"
 ];
 
-const KONKON_BLOCKED_HOSTS = [
-  "youtube.com",
-  "www.youtube.com",
-  "m.youtube.com",
-  "youtu.be",
-  "netflix.com",
-  "www.netflix.com"
+// These hosts are handled by yt-dlp via page URL — show the SDM button on them.
+const KONKON_VIDEO_HOSTS = [
+  "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
+  "facebook.com", "www.facebook.com", "m.facebook.com", "fb.watch",
+  "instagram.com", "www.instagram.com",
+  "twitter.com", "www.twitter.com", "x.com", "www.x.com",
+  "tiktok.com", "www.tiktok.com",
+  "vimeo.com", "www.vimeo.com",
+  "dailymotion.com", "www.dailymotion.com",
+  "twitch.tv", "www.twitch.tv",
+  "reddit.com", "www.reddit.com",
+  "rumble.com", "www.rumble.com",
+  "odysee.com", "www.odysee.com",
 ];
 
-let konkonButton;
+let konkonButton = null;
 let konkonDetectedUrl = "";
+let konkonIsVideoSite = false;
+let konkonInterceptedStreamUrl = null;
 
-scanForDirectMedia();
-new MutationObserver(debounce(scanForDirectMedia, 700)).observe(document.documentElement, {
+// ─── Listen for stream URLs intercepted by background.js ─────────────────────
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "konkon-stream-detected" && message.streamUrl) {
+    konkonInterceptedStreamUrl = message.streamUrl;
+    // Refresh button label to show stream was found
+    if (konkonButton && konkonIsVideoSite) {
+      konkonButton.textContent = "Download video with SDM ✓";
+    }
+  }
+});
+
+// ─── Initial scan + mutation observer ────────────────────────────────────────
+
+scanForDownloadable();
+new MutationObserver(debounce(scanForDownloadable, 700)).observe(document.documentElement, {
   childList: true,
   subtree: true,
   attributes: true,
   attributeFilter: ["src", "href"]
 });
 
-function scanForDirectMedia() {
-  if (isBlockedHost(location.hostname)) {
-    removeButton();
+function scanForDownloadable() {
+  const hostname = location.hostname.toLowerCase();
+
+  // ── Case 1: known video site — show yt-dlp button ──
+  if (isVideoHost(hostname)) {
+    if (isVideoPage(location.href)) {
+      konkonDetectedUrl = location.href;
+      konkonIsVideoSite = true;
+      showButton(buildVideoButtonLabel());
+    } else {
+      removeButton();
+    }
     return;
   }
 
+  // ── Case 2: direct file link on a regular page ──
+  konkonIsVideoSite = false;
   const mediaUrl = findBestDirectMediaUrl();
 
-  if (!mediaUrl) {
+  if (mediaUrl) {
+    konkonDetectedUrl = mediaUrl;
+    showButton("Download with SDM");
+  } else {
     removeButton();
-    return;
+  }
+}
+
+// ─── Video page detection ─────────────────────────────────────────────────────
+
+function isVideoHost(hostname) {
+  return KONKON_VIDEO_HOSTS.some(
+    (h) => hostname === h || hostname.endsWith("." + h)
+  );
+}
+
+function isVideoPage(url) {
+  const videoPagePatterns = [
+    /youtube\.com\/watch/i,
+    /youtu\.be\//i,
+    /facebook\.com\/(?:watch|video|.*\/videos\/)/i,
+    /fb\.watch\//i,
+    /instagram\.com\/(?:p|reel|tv)\//i,
+    /twitter\.com\/.*\/status\//i,
+    /x\.com\/.*\/status\//i,
+    /tiktok\.com\/@[^/]+\/video\//i,
+    /vimeo\.com\/\d+/i,
+    /dailymotion\.com\/video\//i,
+    /twitch\.tv\/videos\//i,
+    /reddit\.com\/r\/[^/]+\/comments\//i,
+    /rumble\.com\/v/i,
+    /odysee\.com\/@[^/]+\//i,
+  ];
+
+  return videoPagePatterns.some((p) => p.test(url));
+}
+
+function buildVideoButtonLabel() {
+  if (konkonInterceptedStreamUrl) {
+    return "Download video with SDM ✓";
   }
 
-  konkonDetectedUrl = mediaUrl;
-  showButton();
+  const host = location.hostname.replace(/^www\./, "").replace(/^m\./, "");
+  return `Download video with SDM`;
 }
+
+// ─── Direct media URL scan (non-video-site pages) ────────────────────────────
 
 function findBestDirectMediaUrl() {
   const candidates = [];
 
-  document.querySelectorAll("video[src], audio[src], source[src]").forEach((element) => {
-    candidates.push(element.currentSrc || element.src);
+  document.querySelectorAll("video[src], audio[src], source[src]").forEach((el) => {
+    candidates.push(el.currentSrc || el.src);
   });
 
-  document.querySelectorAll("a[href]").forEach((anchor) => {
-    candidates.push(anchor.href);
+  document.querySelectorAll("a[href]").forEach((a) => {
+    candidates.push(a.href);
   });
 
   return candidates
@@ -79,53 +140,67 @@ function normalizeUrl(url) {
 }
 
 function isDirectDownloadUrl(url) {
-  const parsed = new URL(url);
-
-  if (!["http:", "https:"].includes(parsed.protocol)) {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    const pathname = parsed.pathname.toLowerCase();
+    return KONKON_MEDIA_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+  } catch {
     return false;
   }
-
-  const pathname = parsed.pathname.toLowerCase();
-  return KONKON_MEDIA_EXTENSIONS.some((extension) => pathname.endsWith(extension));
 }
 
-function showButton() {
-  if (konkonButton) {
-    return;
+// ─── Button ───────────────────────────────────────────────────────────────────
+
+function showButton(label) {
+  if (!konkonButton) {
+    konkonButton = document.createElement("button");
+    konkonButton.type = "button";
+    konkonButton.style.cssText = [
+      "position: fixed",
+      "right: 18px",
+      "bottom: 18px",
+      "z-index: 2147483647",
+      "height: 40px",
+      "padding: 0 16px",
+      "border: 0",
+      "border-radius: 6px",
+      "background: #1f6feb",
+      "color: white",
+      "font: 600 13px Segoe UI, Arial, sans-serif",
+      "box-shadow: 0 8px 24px rgba(16,35,63,.28)",
+      "cursor: pointer",
+      "transition: background 0.2s",
+      "white-space: nowrap",
+    ].join(";");
+
+    konkonButton.addEventListener("click", onButtonClick);
+    document.documentElement.appendChild(konkonButton);
   }
 
-  konkonButton = document.createElement("button");
-  konkonButton.type = "button";
-  konkonButton.textContent = "Download with SDM";
-  konkonButton.title = "Send detected direct media link to Silent Download Manager";
-  konkonButton.style.cssText = [
-    "position: fixed",
-    "right: 18px",
-    "bottom: 18px",
-    "z-index: 2147483647",
-    "height: 40px",
-    "padding: 0 14px",
-    "border: 0",
-    "border-radius: 6px",
-    "background: #1f6feb",
-    "color: white",
-    "font: 600 13px Segoe UI, Arial, sans-serif",
-    "box-shadow: 0 8px 24px rgba(16,35,63,.24)",
-    "cursor: pointer"
-  ].join(";");
+  konkonButton.textContent = label;
+  konkonButton.title = konkonIsVideoSite
+    ? "Send this video page to Silent Download Manager (yt-dlp)"
+    : "Send detected file to Silent Download Manager";
+}
 
-  konkonButton.addEventListener("click", () => {
-    if (!konkonDetectedUrl) {
-      return;
-    }
+function onButtonClick() {
+  if (!konkonDetectedUrl) return;
 
-    setButtonState("Sending...", "#475467");
+  setButtonState("Sending…", "#475467");
 
-    chrome.runtime.sendMessage({
-      type: "konkon-download-url",
-      url: konkonDetectedUrl,
-      referrer: location.href
-    }, (response) => {
+  // For video sites, ask background for the best URL to send:
+  // prefer intercepted stream manifest, fall back to page URL (yt-dlp handles it).
+  const urlToSend = konkonIsVideoSite
+    ? (konkonInterceptedStreamUrl || konkonDetectedUrl)
+    : konkonDetectedUrl;
+
+  // Always send page URL as referrer for video sites.
+  const referrer = konkonIsVideoSite ? location.href : "";
+
+  chrome.runtime.sendMessage(
+    { type: "konkon-download-url", url: urlToSend, referrer },
+    (response) => {
       if (chrome.runtime.lastError) {
         setButtonState("Extension error", "#d92d20");
         resetButtonSoon();
@@ -133,57 +208,40 @@ function showButton() {
       }
 
       if (response?.ok) {
-        setButtonState("Sent to SDM", "#12805c");
+        setButtonState("Sent ✓", "#12805c");
       } else {
         setButtonState(response?.message || "Bridge not ready", "#d92d20");
       }
 
       resetButtonSoon();
-    });
-  });
-
-  document.documentElement.appendChild(konkonButton);
+    }
+  );
 }
 
 function setButtonState(text, color) {
-  if (!konkonButton) {
-    return;
-  }
-
+  if (!konkonButton) return;
   konkonButton.textContent = text;
   konkonButton.style.background = color;
 }
 
 function resetButtonSoon() {
   setTimeout(() => {
-    if (!konkonButton) {
-      return;
-    }
-
-    konkonButton.textContent = "Download with SDM";
+    if (!konkonButton) return;
+    konkonButton.textContent = konkonIsVideoSite ? buildVideoButtonLabel() : "Download with SDM";
     konkonButton.style.background = "#1f6feb";
   }, 2400);
 }
 
 function removeButton() {
   konkonDetectedUrl = "";
-
+  konkonIsVideoSite = false;
   if (konkonButton) {
     konkonButton.remove();
-    konkonButton = undefined;
+    konkonButton = null;
   }
 }
 
-function isBlockedHost(hostname) {
-  const normalized = hostname.toLowerCase();
-  return KONKON_BLOCKED_HOSTS.some((host) => normalized === host || normalized.endsWith(`.${host}`));
-}
-
-function debounce(callback, wait) {
-  let timeoutId;
-
-  return () => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(callback, wait);
-  };
+function debounce(fn, wait) {
+  let t;
+  return () => { clearTimeout(t); t = setTimeout(fn, wait); };
 }

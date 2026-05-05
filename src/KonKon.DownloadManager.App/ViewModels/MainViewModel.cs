@@ -12,6 +12,7 @@ namespace KonKon.DownloadManager.App.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly DownloadService _downloadService = new();
+    private readonly YtDlpService _ytDlpService = new();
     private readonly StorageService _storageService = new();
     private readonly IncomingRequestService _incomingRequestService = new();
     private readonly Func<DownloadItem, DeleteChoice> _confirmDelete;
@@ -44,23 +45,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<DownloadItem> Downloads { get; }
 
     public RelayCommand AddDownloadCommand { get; }
-
     public RelayCommand ChooseFolderCommand { get; }
-
     public RelayCommand PauseCommand { get; }
-
     public RelayCommand ResumeCommand { get; }
-
     public RelayCommand CancelCommand { get; }
-
     public RelayCommand DeleteCommand { get; }
-
     public RelayCommand OpenFolderCommand { get; }
-
     public RelayCommand OpenFileCommand { get; }
-
     public RelayCommand CopyUrlCommand { get; }
-
     public RelayCommand ClearCompletedCommand { get; }
 
     public string NewUrl
@@ -94,6 +86,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 OnPropertyChanged(nameof(SelectedProgressText));
                 OnPropertyChanged(nameof(SelectedTargetPath));
                 OnPropertyChanged(nameof(SelectedUrl));
+                OnPropertyChanged(nameof(IsSelectedYtDlp));
             }
         }
     }
@@ -105,24 +98,24 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public int TotalCount => Downloads.Count;
-
     public int ActiveCount => Downloads.Count(item => item.Status == DownloadStatus.Downloading);
-
     public int CompletedCount => Downloads.Count(item => item.Status == DownloadStatus.Completed);
-
     public int FailedCount => Downloads.Count(item => item.Status == DownloadStatus.Failed);
 
     public string FooterText => $"{TotalCount} total | {ActiveCount} active | {CompletedCount} completed | {FailedCount} failed";
 
     public string SelectedFileName => SelectedDownload?.FileName ?? "No download selected";
-
     public string SelectedStatusText => SelectedDownload?.Status.ToString() ?? "-";
-
     public string SelectedProgressText => SelectedDownload?.ProgressLabel ?? "-";
-
     public string SelectedTargetPath => SelectedDownload?.TargetPath ?? "-";
-
     public string SelectedUrl => SelectedDownload?.Url ?? "-";
+
+    /// <summary>True when the selected item is/was handled by yt-dlp (video site).</summary>
+    public bool IsSelectedYtDlp => SelectedDownload is not null && YtDlpService.IsSupported(SelectedDownload.Url);
+
+    // -----------------------------------------------------------------------
+    // Initialization
+    // -----------------------------------------------------------------------
 
     public async Task InitializeAsync()
     {
@@ -150,6 +143,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _incomingRequestService.Dispose();
     }
 
+    // -----------------------------------------------------------------------
+    // Commands
+    // -----------------------------------------------------------------------
+
     private void AddDownload()
     {
         if (!Uri.TryCreate(NewUrl.Trim(), UriKind.Absolute, out var uri) ||
@@ -159,18 +156,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (IsKnownWebVideoPage(uri))
-        {
-            StatusText = "This is a video page URL, not a direct file link.";
-            return;
-        }
+        var urlString = uri.ToString();
+        var isVideoSite = YtDlpService.IsSupported(urlString);
 
         var item = new DownloadItem
         {
-            Url = uri.ToString(),
+            Url = urlString,
             Referrer = _pendingReferrer,
-            FileName = CreateFileName(uri),
-            TargetFolder = DownloadFolder
+            FileName = isVideoSite
+                ? CreateVideoFileName(uri)
+                : CreateFileName(uri),
+            TargetFolder = DownloadFolder,
+            // Tag so we can resume with the right engine
+            IsYtDlp = isVideoSite
         };
 
         _pendingReferrer = null;
@@ -178,7 +176,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Downloads.Insert(0, item);
         SelectedDownload = item;
         NewUrl = string.Empty;
-        StatusText = "Download started";
+        StatusText = isVideoSite ? "Video download started (yt-dlp)" : "Download started";
         OnCountsChanged();
         _ = RunDownloadAsync(item);
     }
@@ -207,7 +205,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        _downloadService.Pause(SelectedDownload);
+        if (SelectedDownload.IsYtDlp)
+        {
+            _ytDlpService.Pause(SelectedDownload);
+        }
+        else
+        {
+            _downloadService.Pause(SelectedDownload);
+        }
+
         StatusText = "Download paused";
     }
 
@@ -230,7 +236,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        _downloadService.Cancel(SelectedDownload);
+        if (SelectedDownload.IsYtDlp)
+        {
+            _ytDlpService.Cancel(SelectedDownload);
+        }
+        else
+        {
+            _downloadService.Cancel(SelectedDownload);
+        }
+
         StatusText = "Download canceled";
         _ = SaveAsync();
     }
@@ -253,7 +267,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         if (item.Status == DownloadStatus.Downloading)
         {
-            _downloadService.Cancel(item);
+            if (item.IsYtDlp)
+            {
+                _ytDlpService.Cancel(item);
+            }
+            else
+            {
+                _downloadService.Cancel(item);
+            }
         }
 
         if (deleteChoice == DeleteChoice.DeleteFileToo)
@@ -285,10 +306,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 File.Delete(path);
             }
         }
-        catch
-        {
-            // Delete from list should still succeed even if Windows keeps the file locked.
-        }
+        catch { }
     }
 
     private void OpenSelectedFolder()
@@ -343,24 +361,35 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
 
         SelectedDownload = Downloads.FirstOrDefault();
-        StatusText = completed.Count > 0
-            ? "Completed downloads cleared"
-            : "No completed downloads";
+        StatusText = completed.Count > 0 ? "Completed downloads cleared" : "No completed downloads";
         OnCountsChanged();
         _ = SaveAsync();
     }
 
+    // -----------------------------------------------------------------------
+    // Download runner — routes to the right engine
+    // -----------------------------------------------------------------------
+
     private async Task RunDownloadAsync(DownloadItem item)
     {
-        await _downloadService.StartAsync(item);
+        if (item.IsYtDlp)
+        {
+            await _ytDlpService.StartAsync(item);
+        }
+        else
+        {
+            await _downloadService.StartAsync(item);
+        }
+
         StatusText = item.Status switch
         {
             DownloadStatus.Completed => "Download completed",
-            DownloadStatus.Failed => $"Failed: {item.ErrorMessage}",
-            DownloadStatus.Paused => "Paused",
-            DownloadStatus.Canceled => "Canceled",
-            _ => StatusText
+            DownloadStatus.Failed    => $"Failed: {item.ErrorMessage}",
+            DownloadStatus.Paused    => "Paused",
+            DownloadStatus.Canceled  => "Canceled",
+            _                        => StatusText
         };
+
         OnCountsChanged();
         await SaveAsync();
     }
@@ -376,6 +405,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             AddDownload();
         });
     }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
 
     private static string CreateFileName(Uri uri)
     {
@@ -394,17 +427,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         return name;
     }
 
-    private static bool IsKnownWebVideoPage(Uri uri)
+    private static string CreateVideoFileName(Uri uri)
     {
-        var host = uri.Host.ToLowerInvariant();
-
-        if (host is "youtu.be" or "www.youtu.be")
-        {
-            return true;
-        }
-
-        return host.EndsWith("youtube.com", StringComparison.OrdinalIgnoreCase) &&
-            uri.AbsolutePath.Equals("/watch", StringComparison.OrdinalIgnoreCase);
+        // yt-dlp will rename the file once the title is known;
+        // this is just a placeholder shown in the list while it starts.
+        var host = uri.Host.Replace("www.", "").Replace("m.", "");
+        return $"video-{host}-{DateTime.Now:yyyyMMdd-HHmmss}.mkv";
     }
 
     private void AttachDownloadItem(DownloadItem item)
@@ -423,6 +451,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 OnPropertyChanged(nameof(SelectedStatusText));
                 OnPropertyChanged(nameof(SelectedProgressText));
             }
+        }
+
+        // FileName update from yt-dlp destination line
+        if (e.PropertyName == nameof(DownloadItem.FileName) && ReferenceEquals(sender, SelectedDownload))
+        {
+            OnPropertyChanged(nameof(SelectedFileName));
+            OnPropertyChanged(nameof(SelectedTargetPath));
         }
     }
 

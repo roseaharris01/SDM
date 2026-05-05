@@ -22,6 +22,12 @@ public sealed class DownloadItem : INotifyPropertyChanged
 
     public string? Referrer { get; init; }
 
+    /// <summary>
+    /// True when this download should be handled by YtDlpService (YouTube, Facebook, etc.)
+    /// instead of the plain HTTP DownloadService.
+    /// </summary>
+    public bool IsYtDlp { get; set; }
+
     public required string FileName
     {
         get => _fileName;
