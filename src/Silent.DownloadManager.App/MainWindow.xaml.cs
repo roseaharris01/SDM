@@ -1,8 +1,8 @@
-using System.Windows;
-using KonKon.DownloadManager.App.ViewModels;
-using KonKon.DownloadManager.App.Views;
+﻿using System.Windows;
+using Silent.DownloadManager.App.ViewModels;
+using Silent.DownloadManager.App.Views;
 
-namespace KonKon.DownloadManager.App;
+namespace Silent.DownloadManager.App;
 
 public partial class MainWindow : Window
 {
@@ -39,3 +39,4 @@ public partial class MainWindow : Window
             : DeleteChoice.Cancel;
     }
 }
+

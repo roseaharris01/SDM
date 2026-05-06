@@ -1,12 +1,12 @@
-param(
+﻿param(
     [ValidateSet("Chrome", "Edge")]
     [string]$Browser = "Chrome"
 )
 
 $registryPath = if ($Browser -eq "Chrome") {
-    "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.konkon.download_manager"
+    "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.sis.sdm"
 } else {
-    "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.konkon.download_manager"
+    "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.sis.sdm"
 }
 
 if (-not (Test-Path $registryPath)) {
@@ -37,3 +37,4 @@ if (-not (Test-Path $manifest.path)) {
 }
 
 Write-Host "$Browser native host registration looks OK."
+

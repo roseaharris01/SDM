@@ -1,4 +1,4 @@
-namespace KonKon.DownloadManager.App.Services;
+﻿namespace Silent.DownloadManager.App.Services;
 
 public static class AppPaths
 {
@@ -22,3 +22,4 @@ public static class AppPaths
         Directory.CreateDirectory(DefaultDownloadFolder);
     }
 }
+

@@ -1,7 +1,7 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 
-namespace KonKon.DownloadManager.App.Services;
+namespace Silent.DownloadManager.App.Services;
 
 public sealed class IncomingRequestService : IDisposable
 {
@@ -70,3 +70,4 @@ public sealed class IncomingRequestService : IDisposable
 
     public sealed record IncomingDownloadRequest(string Url, string? Referrer);
 }
+

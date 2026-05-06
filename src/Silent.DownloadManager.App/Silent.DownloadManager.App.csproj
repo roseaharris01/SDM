@@ -7,10 +7,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AssemblyName>SDM.App</AssemblyName>
-    <RootNamespace>KonKon.DownloadManager.App</RootNamespace>
+    <RootNamespace>Silent.DownloadManager.App</RootNamespace>
     <Product>Silent Download Manager</Product>
     <AssemblyTitle>Silent Download Manager</AssemblyTitle>
     <Company>SiS</Company>
   </PropertyGroup>
 
 </Project>
+

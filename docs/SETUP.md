@@ -1,4 +1,4 @@
-# Setup Guide
+﻿# Setup Guide
 
 ## Build the desktop app
 
@@ -11,7 +11,7 @@ From the project root:
 The app and native host will be published to:
 
 ```text
-build\publish\KonKon
+build\publish\Silent Download Manager
 ```
 
 Run the app:
@@ -75,3 +75,4 @@ Download with SDM
 button near the bottom-right of the page. This works for direct public links such as `.mp4`, `.webm`, `.mp3`, `.zip`, `.pdf`, `.exe`, and similar files.
 
 YouTube and protected streaming sites do not provide normal direct file URLs to the page. Those URLs point to a video page or temporary segmented streams, so the extension does not add a YouTube-style capture button.
+

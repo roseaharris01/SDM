@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$ExtensionId,
 
@@ -21,13 +21,13 @@ if (-not (Test-Path $NativeHostPath)) {
 }
 
 $manifestTemplate = if ($Browser -eq "Chrome") {
-    Join-Path $root "extensions\native-messaging\com.konkon.download_manager.chrome.json"
+    Join-Path $root "extensions\native-messaging\com.sis.sdm.chrome.json"
 } else {
-    Join-Path $root "extensions\native-messaging\com.konkon.download_manager.edge.json"
+    Join-Path $root "extensions\native-messaging\com.sis.sdm.edge.json"
 }
 
 $manifestDir = Join-Path $env:LOCALAPPDATA "SiS SDM\NativeMessaging"
-$manifestPath = Join-Path $manifestDir "com.konkon.download_manager.json"
+$manifestPath = Join-Path $manifestDir "com.sis.sdm.json"
 New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
 
 $escapedHostPath = $NativeHostPath.Replace("\", "\\")
@@ -37,9 +37,9 @@ $manifest = $manifest.Replace("__EXTENSION_ID__", $ExtensionId)
 Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
 
 $registryPath = if ($Browser -eq "Chrome") {
-    "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.konkon.download_manager"
+    "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.sis.sdm"
 } else {
-    "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.konkon.download_manager"
+    "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.sis.sdm"
 }
 
 New-Item -Path $registryPath -Force | Out-Null
@@ -47,3 +47,4 @@ Set-Item -Path $registryPath -Value $manifestPath
 
 Write-Host "$Browser native host registered."
 Write-Host "Manifest: $manifestPath"
+

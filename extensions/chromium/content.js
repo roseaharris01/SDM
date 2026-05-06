@@ -1,11 +1,11 @@
-const KONKON_MEDIA_EXTENSIONS = [
+﻿const SDM_MEDIA_EXTENSIONS = [
   ".mp4", ".webm", ".mkv", ".mov", ".avi",
   ".mp3", ".m4a", ".wav", ".ogg",
   ".zip", ".rar", ".7z",
   ".pdf", ".exe", ".msi"
 ];
 
-const KONKON_VIDEO_HOSTS = [
+const SDM_VIDEO_HOSTS = [
   "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
   "facebook.com", "www.facebook.com", "m.facebook.com", "fb.watch",
   "instagram.com", "www.instagram.com",
@@ -19,9 +19,9 @@ const KONKON_VIDEO_HOSTS = [
   "odysee.com", "www.odysee.com",
 ];
 
-let konkonButton = null;
-let konkonDetectedUrl = "";
-let konkonIsVideoSite = false;
+let sdmButton = null;
+let sdmDetectedUrl = "";
+let sdmIsVideoSite = false;
 
 scanForDownloadable();
 
@@ -46,8 +46,8 @@ function scanForDownloadable() {
 
   if (isVideoHost(hostname)) {
     if (isVideoPage(location.href)) {
-      konkonDetectedUrl = location.href;
-      konkonIsVideoSite = true;
+      sdmDetectedUrl = location.href;
+      sdmIsVideoSite = true;
       showButton("Download video with SDM");
     } else {
       removeButton();
@@ -55,11 +55,11 @@ function scanForDownloadable() {
     return;
   }
 
-  konkonIsVideoSite = false;
+  sdmIsVideoSite = false;
   const mediaUrl = findBestDirectMediaUrl();
 
   if (mediaUrl) {
-    konkonDetectedUrl = mediaUrl;
+    sdmDetectedUrl = mediaUrl;
     showButton("Download with SDM");
   } else {
     removeButton();
@@ -67,7 +67,7 @@ function scanForDownloadable() {
 }
 
 function isVideoHost(hostname) {
-  return KONKON_VIDEO_HOSTS.some(
+  return SDM_VIDEO_HOSTS.some(
     (h) => hostname === h || hostname.endsWith("." + h)
   );
 }
@@ -117,15 +117,15 @@ function isDirectDownloadUrl(url) {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) return false;
     const pathname = parsed.pathname.toLowerCase();
-    return KONKON_MEDIA_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+    return SDM_MEDIA_EXTENSIONS.some((ext) => pathname.endsWith(ext));
   } catch { return false; }
 }
 
 function showButton(label) {
-  if (!konkonButton) {
-    konkonButton = document.createElement("button");
-    konkonButton.type = "button";
-    konkonButton.style.cssText = [
+  if (!sdmButton) {
+    sdmButton = document.createElement("button");
+    sdmButton.type = "button";
+    sdmButton.style.cssText = [
       "position: fixed",
       "right: 18px",
       "bottom: 18px",
@@ -142,27 +142,27 @@ function showButton(label) {
       "transition: background 0.2s",
       "white-space: nowrap",
     ].join(";");
-    konkonButton.addEventListener("click", onButtonClick);
-    document.documentElement.appendChild(konkonButton);
+    sdmButton.addEventListener("click", onButtonClick);
+    document.documentElement.appendChild(sdmButton);
   }
-  konkonButton.textContent = label;
-  konkonButton.title = konkonIsVideoSite
+  sdmButton.textContent = label;
+  sdmButton.title = sdmIsVideoSite
     ? "Send this video page to Silent Download Manager (uses yt-dlp)"
     : "Send detected file to Silent Download Manager";
 }
 
 function onButtonClick() {
-  if (!konkonDetectedUrl) return;
+  if (!sdmDetectedUrl) return;
   setButtonState("Sending\u2026", "#475467");
 
   // IMPORTANT: For video sites, always send location.href (the page URL).
-  // Never send CDN/stream URLs — they use short-lived auth tokens and return 400.
+  // Never send CDN/stream URLs â€” they use short-lived auth tokens and return 400.
   // yt-dlp on the desktop will extract the real video stream from the page URL.
-  const urlToSend = konkonIsVideoSite ? location.href : konkonDetectedUrl;
-  const referrer = konkonIsVideoSite ? location.href : "";
+  const urlToSend = sdmIsVideoSite ? location.href : sdmDetectedUrl;
+  const referrer = sdmIsVideoSite ? location.href : "";
 
   chrome.runtime.sendMessage(
-    { type: "konkon-download-url", url: urlToSend, referrer },
+    { type: "sdm-download-url", url: urlToSend, referrer },
     (response) => {
       if (chrome.runtime.lastError) {
         setButtonState("Extension error", "#d92d20");
@@ -180,25 +180,25 @@ function onButtonClick() {
 }
 
 function setButtonState(text, color) {
-  if (!konkonButton) return;
-  konkonButton.textContent = text;
-  konkonButton.style.background = color;
+  if (!sdmButton) return;
+  sdmButton.textContent = text;
+  sdmButton.style.background = color;
 }
 
 function resetButtonSoon() {
   setTimeout(() => {
-    if (!konkonButton) return;
-    konkonButton.textContent = konkonIsVideoSite ? "Download video with SDM" : "Download with SDM";
-    konkonButton.style.background = "#1f6feb";
+    if (!sdmButton) return;
+    sdmButton.textContent = sdmIsVideoSite ? "Download video with SDM" : "Download with SDM";
+    sdmButton.style.background = "#1f6feb";
   }, 2400);
 }
 
 function removeButton() {
-  konkonDetectedUrl = "";
-  konkonIsVideoSite = false;
-  if (konkonButton) {
-    konkonButton.remove();
-    konkonButton = null;
+  sdmDetectedUrl = "";
+  sdmIsVideoSite = false;
+  if (sdmButton) {
+    sdmButton.remove();
+    sdmButton = null;
   }
 }
 
@@ -206,3 +206,5 @@ function debounce(fn, wait) {
   let t;
   return () => { clearTimeout(t); t = setTimeout(fn, wait); };
 }
+
+

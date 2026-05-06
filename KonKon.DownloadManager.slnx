@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/KonKon.DownloadManager.App/KonKon.DownloadManager.App.csproj" />
-    <Project Path="src/KonKon.DownloadManager.NativeHost/KonKon.DownloadManager.NativeHost.csproj" />
-  </Folder>
-</Solution>

@@ -1,4 +1,4 @@
-<Window x:Class="KonKon.DownloadManager.App.Views.DeleteDownloadDialog"
+﻿<Window x:Class="Silent.DownloadManager.App.Views.DeleteDownloadDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Delete Download"
@@ -68,3 +68,4 @@
         </Grid>
     </Border>
 </Window>
+

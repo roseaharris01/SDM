@@ -1,13 +1,13 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
-using KonKon.DownloadManager.App.Models;
-using KonKon.DownloadManager.App.Services;
+using Silent.DownloadManager.App.Models;
+using Silent.DownloadManager.App.Services;
 using Microsoft.Win32;
 
-namespace KonKon.DownloadManager.App.ViewModels;
+namespace Silent.DownloadManager.App.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 {
@@ -124,11 +124,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         foreach (var item in await _storageService.LoadAsync())
         {
-            if (item.Status == DownloadStatus.Failed)
-            {
-                _downloadService.TryRepairCompletedPartial(item);
-            }
-
+            NormalizeLoadedItem(item);
             AttachDownloadItem(item);
             Downloads.Add(item);
         }
@@ -141,6 +137,34 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void Dispose()
     {
         _incomingRequestService.Dispose();
+    }
+
+    private void NormalizeLoadedItem(DownloadItem item)
+    {
+        if (item.Status == DownloadStatus.Failed)
+        {
+            _downloadService.TryRepairCompletedPartial(item);
+        }
+
+        if (File.Exists(item.TargetPath) &&
+            (item.Progress >= 99.9 ||
+             item.Status is DownloadStatus.Completed or DownloadStatus.Failed or DownloadStatus.Canceled))
+        {
+            var length = new FileInfo(item.TargetPath).Length;
+            item.BytesReceived = length;
+            item.TotalBytes = length;
+            item.Progress = 100;
+            item.SpeedBytesPerSecond = 0;
+            item.ErrorMessage = string.Empty;
+            item.Status = DownloadStatus.Completed;
+            return;
+        }
+
+        if (item.Status == DownloadStatus.Downloading)
+        {
+            item.Status = DownloadStatus.Paused;
+            item.SpeedBytesPerSecond = 0;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -366,7 +390,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // -----------------------------------------------------------------------
-    // Download runner — routes to the right engine
+    // Download runner â€” routes to the right engine
     // -----------------------------------------------------------------------
 
     private async Task RunDownloadAsync(DownloadItem item)
@@ -492,3 +516,4 @@ public enum DeleteChoice
     RemoveFromListOnly,
     DeleteFileToo
 }
+

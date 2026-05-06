@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace KonKon.DownloadManager.App;
+namespace Silent.DownloadManager.App;
 
 /// <summary>
 /// Interaction logic for App.xaml
@@ -10,4 +10,5 @@ namespace KonKon.DownloadManager.App;
 public partial class App : Application
 {
 }
+
 

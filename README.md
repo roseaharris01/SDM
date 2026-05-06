@@ -1,4 +1,4 @@
-# Silent Download Manager
+﻿# Silent Download Manager
 
 Silent Download Manager, short form SDM, is a lightweight Windows download manager built with C#/.NET and WPF, plus a Chromium browser extension scaffold for Chrome and Microsoft Edge.
 
@@ -18,15 +18,15 @@ Silent Download Manager, short form SDM, is a lightweight Windows download manag
 ## Project Structure
 
 ```text
-KonKonDownloadManager
+Silent Download ManagerDownloadManager
 |-- src
-|   |-- KonKon.DownloadManager.App
+|   |-- Silent.DownloadManager.App
 |   |   |-- Models
 |   |   |-- Services
 |   |   |-- ViewModels
 |   |   |-- MainWindow.xaml
 |   |   `-- MainWindow.xaml.cs
-|   `-- KonKon.DownloadManager.NativeHost
+|   `-- Silent.DownloadManager.NativeHost
 |       `-- Program.cs
 |-- extensions
 |   |-- chromium
@@ -54,3 +54,4 @@ More setup details are in `docs\SETUP.md`.
 ## Notes
 
 This is a professional MVP foundation. It intentionally does not bypass DRM, paid streaming protections, encrypted media restrictions, or YouTube-style protected streaming flows.
+

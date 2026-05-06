@@ -6,10 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>SDM.NativeHost</AssemblyName>
-    <RootNamespace>KonKon.DownloadManager.NativeHost</RootNamespace>
+    <RootNamespace>Silent.DownloadManager.NativeHost</RootNamespace>
     <Product>Silent Download Manager Native Host</Product>
     <AssemblyTitle>Silent Download Manager Native Host</AssemblyTitle>
     <Company>SiS</Company>
   </PropertyGroup>
 
 </Project>
+

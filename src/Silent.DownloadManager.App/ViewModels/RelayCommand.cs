@@ -1,6 +1,6 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 
-namespace KonKon.DownloadManager.App.ViewModels;
+namespace Silent.DownloadManager.App.ViewModels;
 
 public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) : ICommand
 {
@@ -12,3 +12,4 @@ public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) 
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
+

@@ -1,7 +1,7 @@
-using System.Text.Json;
-using KonKon.DownloadManager.App.Models;
+﻿using System.Text.Json;
+using Silent.DownloadManager.App.Models;
 
-namespace KonKon.DownloadManager.App.Services;
+namespace Silent.DownloadManager.App.Services;
 
 public sealed class StorageService
 {
@@ -30,3 +30,4 @@ public sealed class StorageService
         await JsonSerializer.SerializeAsync(stream, downloads, Options);
     }
 }
+

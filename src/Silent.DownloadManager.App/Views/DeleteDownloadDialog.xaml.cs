@@ -1,8 +1,8 @@
-using System.Windows;
-using KonKon.DownloadManager.App.Models;
-using KonKon.DownloadManager.App.ViewModels;
+﻿using System.Windows;
+using Silent.DownloadManager.App.Models;
+using Silent.DownloadManager.App.ViewModels;
 
-namespace KonKon.DownloadManager.App.Views;
+namespace Silent.DownloadManager.App.Views;
 
 public partial class DeleteDownloadDialog : Window
 {
@@ -29,3 +29,4 @@ public partial class DeleteDownloadDialog : Window
         DialogResult = false;
     }
 }
+

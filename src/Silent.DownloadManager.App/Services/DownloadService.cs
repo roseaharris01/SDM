@@ -1,10 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using KonKon.DownloadManager.App.Models;
+using Silent.DownloadManager.App.Models;
 
-namespace KonKon.DownloadManager.App.Services;
+namespace Silent.DownloadManager.App.Services;
 
 public sealed class DownloadService
 {
@@ -283,3 +283,4 @@ public sealed class DownloadService
 
     private sealed class UnsupportedDownloadContentException(string message) : Exception(message);
 }
+

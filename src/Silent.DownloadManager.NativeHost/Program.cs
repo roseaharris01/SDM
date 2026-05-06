@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -95,8 +95,8 @@ static void TryStartDesktopApp()
     {
         Path.Combine(baseDirectory, "SDM.App.exe"),
         Path.Combine(baseDirectory, "SiS.SDM.App.exe"),
-        Path.Combine(baseDirectory, "KonKon.DownloadManager.App.exe"),
-        Path.Combine(baseDirectory, "..", "KonKon.DownloadManager.App", "KonKon.DownloadManager.App.exe")
+        Path.Combine(baseDirectory, "Silent.DownloadManager.App.exe"),
+        Path.Combine(baseDirectory, "..", "Silent.DownloadManager.App", "Silent.DownloadManager.App.exe")
     };
 
     var appPath = candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
@@ -118,3 +118,4 @@ internal sealed record NativeRequest(string Url, string? Referrer);
 internal sealed record IncomingRequest(string Url, string? Referrer);
 
 internal sealed record NativeResponse(bool Ok, string Message);
+

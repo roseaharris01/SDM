@@ -1,4 +1,4 @@
-namespace KonKon.DownloadManager.App.Models;
+﻿namespace Silent.DownloadManager.App.Models;
 
 public enum DownloadStatus
 {
@@ -9,3 +9,4 @@ public enum DownloadStatus
     Failed,
     Canceled
 }
+

@@ -1,20 +1,20 @@
-const HOST_NAME = "com.konkon.download_manager";
+﻿const HOST_NAME = "com.sis.sdm";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "download-link-with-konkon",
+    id: "download-link-with-sdm",
     title: "Download with Silent Download Manager",
     contexts: ["link"]
   });
 
   chrome.contextMenus.create({
-    id: "download-page-with-konkon",
+    id: "download-page-with-sdm",
     title: "Download current page with Silent Download Manager",
     contexts: ["page"]
   });
 
   chrome.contextMenus.create({
-    id: "download-video-with-konkon",
+    id: "download-video-with-sdm",
     title: "Download video with Silent Download Manager",
     contexts: ["video"]
   });
@@ -22,11 +22,11 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Track tab navigations so right-click on video element sends page URL
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  // No-op — kept for future use
+  // No-op â€” kept for future use
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "download-video-with-konkon") {
+  if (info.menuItemId === "download-video-with-sdm") {
     // Right-click on a <video> element:
     // If it's a video site (YouTube, Facebook etc.), send the page URL so yt-dlp handles it.
     // If it's a direct .mp4 src, send that.
@@ -50,7 +50,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "konkon-download-url" && message.url) {
+  if (message?.type === "sdm-download-url" && message.url) {
     sendToNativeHost(message.url, message.referrer || sender.tab?.url || "")
       .then((response) => sendResponse(response));
     return true;
@@ -97,3 +97,4 @@ function notify(message) {
     message
   });
 }
+

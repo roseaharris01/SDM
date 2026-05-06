@@ -1,7 +1,7 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace KonKon.DownloadManager.App.Models;
+namespace Silent.DownloadManager.App.Models;
 
 public sealed class DownloadItem : INotifyPropertyChanged
 {
@@ -160,3 +160,4 @@ public sealed class DownloadItem : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
+

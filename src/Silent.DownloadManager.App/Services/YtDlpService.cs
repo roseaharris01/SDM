@@ -1,8 +1,9 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
-using KonKon.DownloadManager.App.Models;
+using System.Windows;
+using Silent.DownloadManager.App.Models;
 
-namespace KonKon.DownloadManager.App.Services;
+namespace Silent.DownloadManager.App.Services;
 
 /// <summary>
 /// Downloads videos from YouTube, Facebook, and 1000+ other sites using yt-dlp.
@@ -19,20 +20,13 @@ public sealed class YtDlpService
     // Public API
     // -----------------------------------------------------------------------
 
-    /// <summary>
-    /// Returns true when the given URL should be handled by yt-dlp instead of
-    /// the plain HTTP downloader.
-    /// </summary>
     public static bool IsSupported(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
             return false;
-        }
 
         var host = uri.Host.ToLowerInvariant().TrimStart('w', '.');
 
-        // Known streaming / social-video hosts
         string[] supported =
         [
             "youtube.com", "youtu.be",
@@ -57,16 +51,14 @@ public sealed class YtDlpService
         return supported.Any(s => host == s || host.EndsWith("." + s, StringComparison.Ordinal));
     }
 
-    /// <summary>
-    /// Downloads the video at <paramref name="item"/>.Url into <paramref name="item"/>.TargetFolder.
-    /// Progress, speed, and status are updated on the item directly (UI-thread safe via
-    /// the caller marshalling — same pattern as DownloadService).
-    /// </summary>
     public async Task StartAsync(DownloadItem item, string qualityFormat = "bestvideo+bestaudio/best")
     {
         Directory.CreateDirectory(item.TargetFolder);
-        item.Status = DownloadStatus.Downloading;
-        item.ErrorMessage = string.Empty;
+        SetOnUi(item, i =>
+        {
+            i.Status = DownloadStatus.Downloading;
+            i.ErrorMessage = string.Empty;
+        });
 
         var cts = new CancellationTokenSource();
         _activeDownloads[item.Id] = cts;
@@ -75,38 +67,48 @@ public sealed class YtDlpService
         {
             await EnsureYtDlpAsync(cts.Token);
 
-            // Output template: place file in TargetFolder, keep yt-dlp's chosen name.
             var outputTemplate = Path.Combine(item.TargetFolder, "%(title)s.%(ext)s");
-
             var args = BuildArguments(item.Url, outputTemplate, qualityFormat, item.Referrer);
 
             await RunYtDlpAsync(item, args, cts.Token);
 
             if (!cts.Token.IsCancellationRequested)
             {
-                item.Progress = 100;
-                item.SpeedBytesPerSecond = 0;
-                item.Status = DownloadStatus.Completed;
+                SetOnUi(item, i =>
+                {
+                    i.Progress = 100;
+                    i.SpeedBytesPerSecond = 0;
+                    i.Status = DownloadStatus.Completed;
+                });
             }
         }
         catch (OperationCanceledException)
         {
-            item.SpeedBytesPerSecond = 0;
-            item.Status = item.Status == DownloadStatus.Canceled
-                ? DownloadStatus.Canceled
-                : DownloadStatus.Paused;
+            SetOnUi(item, i =>
+            {
+                i.SpeedBytesPerSecond = 0;
+                i.Status = i.Status == DownloadStatus.Canceled
+                    ? DownloadStatus.Canceled
+                    : DownloadStatus.Paused;
+            });
         }
         catch (YtDlpNotFoundException)
         {
-            item.SpeedBytesPerSecond = 0;
-            item.ErrorMessage = "yt-dlp.exe not found and could not be downloaded. Place yt-dlp.exe next to SDM.App.exe.";
-            item.Status = DownloadStatus.Failed;
+            SetOnUi(item, i =>
+            {
+                i.SpeedBytesPerSecond = 0;
+                i.ErrorMessage = "yt-dlp.exe not found and could not be downloaded. Place yt-dlp.exe next to SDM.App.exe.";
+                i.Status = DownloadStatus.Failed;
+            });
         }
         catch (Exception ex)
         {
-            item.SpeedBytesPerSecond = 0;
-            item.ErrorMessage = ex.Message;
-            item.Status = DownloadStatus.Failed;
+            SetOnUi(item, i =>
+            {
+                i.SpeedBytesPerSecond = 0;
+                i.ErrorMessage = ex.Message;
+                i.Status = DownloadStatus.Failed;
+            });
         }
         finally
         {
@@ -137,38 +139,41 @@ public sealed class YtDlpService
     // Internals
     // -----------------------------------------------------------------------
 
+    /// <summary>
+    /// Marshals an update to the UI thread so WPF data-bound properties
+    /// don't throw "calling thread cannot access this object".
+    /// </summary>
+    private static void SetOnUi(DownloadItem item, Action<DownloadItem> update)
+    {
+        if (Application.Current?.Dispatcher is { } dispatcher)
+        {
+            dispatcher.Invoke(() => update(item));
+        }
+        else
+        {
+            update(item);
+        }
+    }
+
     private static string BuildArguments(string url, string outputTemplate, string format, string? referrer)
     {
         var args = new System.Text.StringBuilder();
 
-        // Format
         args.Append($"-f \"{format}\" ");
-
-        // Merge into mkv when separate streams
         args.Append("--merge-output-format mkv ");
-
-        // Output path
         args.Append($"-o \"{outputTemplate}\" ");
-
-        // Progress machine-readable
         args.Append("--newline ");
-
-        // No playlist by default — download only the single video
         args.Append("--no-playlist ");
 
-        // Subtitles (optional, embedded)
+        // Use Chrome cookies for sites that require login (Facebook, Instagram, etc.)
+        args.Append("--cookies-from-browser chrome ");
+
         args.Append("--write-subs --sub-langs en --embed-subs ");
 
-        // Referrer
         if (!string.IsNullOrWhiteSpace(referrer))
-        {
             args.Append($"--referer \"{referrer}\" ");
-        }
 
-        // Retry
         args.Append("--retries 5 ");
-
-        // URL last
         args.Append($"\"{url}\"");
 
         return args.ToString();
@@ -189,7 +194,10 @@ public sealed class YtDlpService
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.Start();
 
-        // Parse progress lines on a background thread
+        // Collect stderr for error reporting
+        var stderrTask = process.StandardError.ReadToEndAsync(token);
+
+        // Parse stdout progress lines â€” marshal every UI update to main thread
         var readTask = Task.Run(async () =>
         {
             while (await process.StandardOutput.ReadLineAsync(token) is { } line)
@@ -198,7 +206,6 @@ public sealed class YtDlpService
             }
         }, token);
 
-        // Register cancellation → kill process
         await using var reg = token.Register(() =>
         {
             try { process.Kill(entireProcessTree: true); }
@@ -210,7 +217,7 @@ public sealed class YtDlpService
 
         if (process.ExitCode != 0 && !token.IsCancellationRequested)
         {
-            var error = await process.StandardError.ReadToEndAsync(token);
+            var error = await stderrTask;
             throw new Exception(ExtractUserFriendlyError(error));
         }
     }
@@ -230,31 +237,36 @@ public sealed class YtDlpService
         var pm = ProgressRegex.Match(line);
         if (pm.Success)
         {
+            double pct = 0;
             if (double.TryParse(pm.Groups["pct"].Value, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var pct))
-            {
-                item.Progress = Math.Min(100, pct);
-            }
+                System.Globalization.CultureInfo.InvariantCulture, out var p))
+                pct = Math.Min(100, p);
 
             var totalBytes = ParseSize(pm.Groups["size"].Value, pm.Groups["unit"].Value);
-            if (totalBytes > 0)
-            {
-                item.TotalBytes = totalBytes;
-                item.BytesReceived = (long)(totalBytes * item.Progress / 100.0);
-            }
+            var speed = ParseSize(pm.Groups["speed"].Value, pm.Groups["su"].Value);
 
-            item.SpeedBytesPerSecond = ParseSize(pm.Groups["speed"].Value, pm.Groups["su"].Value);
+            // All property writes must happen on the UI thread
+            SetOnUi(item, i =>
+            {
+                i.Progress = pct;
+                if (totalBytes > 0)
+                {
+                    i.TotalBytes = totalBytes;
+                    i.BytesReceived = (long)(totalBytes * pct / 100.0);
+                }
+                i.SpeedBytesPerSecond = speed;
+            });
             return;
         }
 
-        // Capture final file name from yt-dlp output
         var dm = DestinationRegex.Match(line);
         if (dm.Success)
         {
             var filePath = dm.Groups[1].Value.Trim();
             if (!string.IsNullOrWhiteSpace(filePath))
             {
-                item.FileName = Path.GetFileName(filePath);
+                var fileName = Path.GetFileName(filePath);
+                SetOnUi(item, i => i.FileName = fileName);
             }
         }
     }
@@ -263,9 +275,7 @@ public sealed class YtDlpService
     {
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out var num))
-        {
             return 0;
-        }
 
         return unit.ToUpperInvariant() switch
         {
@@ -280,21 +290,19 @@ public sealed class YtDlpService
     private static string ExtractUserFriendlyError(string stderr)
     {
         if (string.IsNullOrWhiteSpace(stderr))
-        {
             return "yt-dlp exited with an error.";
-        }
 
-        // Return last non-empty line that starts with ERROR:
         var errorLine = stderr
             .Split('\n')
             .LastOrDefault(l => l.TrimStart().StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase));
 
-        return errorLine?.Trim() ?? stderr.Split('\n').LastOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim()
+        return errorLine?.Trim()
+            ?? stderr.Split('\n').LastOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim()
             ?? "yt-dlp exited with an error.";
     }
 
     // -----------------------------------------------------------------------
-    // Auto-download yt-dlp.exe from GitHub releases if missing
+    // Auto-download yt-dlp.exe
     // -----------------------------------------------------------------------
 
     private static readonly SemaphoreSlim _dlLock = new(1, 1);
@@ -302,18 +310,14 @@ public sealed class YtDlpService
     private static async Task EnsureYtDlpAsync(CancellationToken token)
     {
         if (File.Exists(YtDlpPath))
-        {
             return;
-        }
 
         await _dlLock.WaitAsync(token);
 
         try
         {
             if (File.Exists(YtDlpPath))
-            {
                 return;
-            }
 
             const string ReleaseUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
 
@@ -336,3 +340,4 @@ public sealed class YtDlpService
 
     private sealed class YtDlpNotFoundException(string message) : Exception(message);
 }
+
